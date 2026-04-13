@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 15s        # Collect metrics every 15 seconds
+  evaluation_interval: 15s
+
+scrape_configs:
+
+  # Prometheus monitors itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Our Flask app exposes /metrics endpoint
+  - job_name: 'taskflow'
+    static_configs:
+      - targets: ['taskflow:5000']   # "taskflow" = Docker service name
+    metrics_path: /metrics
+
+  # Monitor the host machine (requires node_exporter)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['localhost:9100']

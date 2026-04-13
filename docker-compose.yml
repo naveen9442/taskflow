@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+
+  # ---- The Flask App ----
+  taskflow:
+    build: .                          # Build from our Dockerfile
+    container_name: taskflow_app
+    restart: always                   # Auto-restart if it crashes
+    ports:
+      - "5000:5000"                   # Map container port to host
+    volumes:
+      - taskflow_data:/data           # Persist the SQLite database
+    networks:
+      - taskflow_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ---- Prometheus (metrics collector) ----
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - taskflow_net
+
+  # ---- Grafana (metrics dashboard) ----
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123  # Change in production!
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - taskflow_net
+
+volumes:
+  taskflow_data:    # Persists tasks even when container restarts
+  prometheus_data:
+  grafana_data:
+
+networks:
+  taskflow_net:
+    driver: bridge  # All containers talk to each other on this network

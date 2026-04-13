@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TaskFlow</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f0f2f5; min-height: 100vh; }
+    .header { background: #2563eb; color: white; padding: 20px 40px; }
+    .header h1 { font-size: 24px; }
+    .header p  { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+    .container { max-width: 700px; margin: 30px auto; padding: 0 20px; }
+    .add-form { display: flex; gap: 10px; margin-bottom: 24px; }
+    .add-form input { flex: 1; padding: 10px 14px; border: 1px solid #ddd;
+                      border-radius: 8px; font-size: 15px; }
+    .add-form button { padding: 10px 20px; background: #2563eb; color: white;
+                       border: none; border-radius: 8px; cursor: pointer; font-size: 15px; }
+    .add-form button:hover { background: #1d4ed8; }
+    .task-card { background: white; border-radius: 10px; padding: 14px 18px;
+                 margin-bottom: 10px; display: flex; align-items: center;
+                 gap: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .task-card.done span { text-decoration: line-through; color: #999; }
+    .task-card span { flex: 1; font-size: 15px; }
+    .task-card .time { font-size: 12px; color: #aaa; }
+    .btn { padding: 6px 14px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; }
+    .btn-done   { background: #d1fae5; color: #065f46; }
+    .btn-delete { background: #fee2e2; color: #991b1b; }
+    .badge { background: #2563eb; color: white; border-radius: 99px;
+             padding: 2px 10px; font-size: 12px; margin-left: 8px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>TaskFlow <span class="badge">DevOps Demo</span></h1>
+    <p>Simple task manager — Flask + Docker + Jenkins + Ansible + Nginx</p>
+  </div>
+  <div class="container">
+    <div class="add-form">
+      <input type="text" id="taskInput" placeholder="Add a new task..." onkeydown="if(event.key==='Enter') addTask()">
+      <button onclick="addTask()">Add Task</button>
+    </div>
+    <div id="task-list">
+      {% for task in tasks %}
+      <div class="task-card {% if task.done %}done{% endif %}" id="task-{{ task.id }}">
+        <input type="checkbox" {% if task.done %}checked{% endif %}
+               onchange="toggleTask({{ task.id }})">
+        <span>{{ task.title }}</span>
+        <span class="time">{{ task.created_at }}</span>
+        <button class="btn btn-delete" onclick="deleteTask({{ task.id }})">Delete</button>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <script>
+    async function addTask() {
+      const input = document.getElementById('taskInput');
+      const title = input.value.trim();
+      if (!title) return;
+      await fetch('/api/tasks', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({title})
+      });
+      input.value = '';
+      location.reload();
+    }
+    async function toggleTask(id) {
+      await fetch(`/api/tasks/${id}/done`, {method: 'PUT'});
+      location.reload();
+    }
+    async function deleteTask(id) {
+      await fetch(`/api/tasks/${id}`, {method: 'DELETE'});
+      document.getElementById(`task-${id}`).remove();
+    }
+  </script>
+</body>
+</html>

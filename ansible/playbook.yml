@@ -1,0 +1,108 @@
+---
+- name: Deploy TaskFlow Application
+  hosts: webservers
+  become: yes
+  vars:
+    app_dir: /opt/taskflow
+    docker_image: taskflow:latest
+
+  tasks:
+    # 1. Make sure Docker is running
+    - name: Ensure Docker is started
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    # 2. Create application directory
+    - name: Create app directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    # 3. Copy app files to the server
+    - name: Copy app files
+      copy:
+        src: "../{{ item }}"
+        dest: "{{ app_dir }}/{{ item }}"
+        owner: root
+        group: root
+      loop:
+        - app
+        - Dockerfile
+        - docker-compose.yml
+      ignore_errors: yes
+
+    # Alternative: Copy everything
+    - name: Copy all files
+      copy:
+        src: ../
+        dest: "{{ app_dir }}/"
+        owner: root
+        group: root
+
+    # 4. Build the Docker image (using docker_image module)
+    - name: Build Docker image
+      docker_image:
+        name: taskflow
+        tag: latest
+        source: build
+        build:
+          path: "{{ app_dir }}"
+      environment:
+        DOCKER_HOST: "unix:///var/run/docker.sock"
+
+    # 5. Stop old container if running
+    - name: Stop old container
+      docker_container:
+        name: taskflow_app
+        state: absent
+      ignore_errors: yes
+
+    # 6. Start new container
+    - name: Start new container
+      docker_container:
+        name: taskflow_app
+        image: "{{ docker_image }}"
+        state: started
+        restart_policy: always
+        ports:
+          - "5000:5000"
+        volumes:
+          - taskflow_data:/data
+
+    # 7. Configure Nginx (only if Nginx is installed)
+    - name: Check if Nginx config exists
+      stat:
+        path: ../nginx/taskflow.conf
+      register: nginx_config
+
+    - name: Copy Nginx config
+      copy:
+        src: ../nginx/taskflow.conf
+        dest: /etc/nginx/conf.d/taskflow.conf
+      when: nginx_config.stat.exists
+
+    - name: Reload Nginx
+      systemd:
+        name: nginx
+        state: reloaded
+      when: nginx_config.stat.exists
+      ignore_errors: yes
+
+    # 8. Verify deployment
+    - name: Wait for app to be healthy
+      uri:
+        url: http://localhost:5000/health
+        return_content: yes
+      register: health
+      until: health.status == 200
+      retries: 10
+      delay: 5
+
+    - name: Print health status
+      debug:
+        msg: "App is healthy: {{ health.json }}"
