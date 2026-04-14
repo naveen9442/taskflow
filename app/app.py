@@ -81,6 +81,7 @@ def toggle_task(task_id):
         conn.commit()
     REQUEST_COUNT.labels('PUT', '/api/tasks/done', '200').inc()
     return jsonify({'message': 'Task updated'})
+    return jsonify({'message': 'Task updated'})
 
 @app.route('/api/tasks/<int:task_id>', methods=['DELETE'])
 def delete_task(task_id):
